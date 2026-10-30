@@ -50,15 +50,23 @@ class PdfInvoiceGenerator {
           bold: ttfBold,
         ),
         build: (context) => [
-          _buildHeader(invoice, seller, logoImage),
-          pw.SizedBox(height: 10),
-          _buildClientSection(invoice),
-          pw.SizedBox(height: 12),
-          _buildItemsTable(invoice),
-          pw.SizedBox(height: 12),
-          _buildFinancialSummary(invoice),
-          pw.SizedBox(height: 12),
-          _buildFooterAndSignature(invoice, seller, stampImage),
+          pw.Directionality(
+            textDirection: pw.TextDirection.rtl,
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+                _buildHeader(invoice, seller, logoImage),
+                pw.SizedBox(height: 10),
+                _buildClientSection(invoice),
+                pw.SizedBox(height: 12),
+                _buildItemsTable(invoice),
+                pw.SizedBox(height: 12),
+                _buildFinancialSummary(invoice),
+                pw.SizedBox(height: 12),
+                _buildFooterAndSignature(invoice, seller, stampImage),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -96,7 +104,9 @@ class PdfInvoiceGenerator {
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         crossAxisAlignment: pw.CrossAxisAlignment.center,
         children: [
+          // سمت راست هدر: لوگو و نام برند MR.Config
           pw.Row(
+            mainAxisSize: pw.MainAxisSize.min,
             children: [
               if (logo != null) ...[
                 pw.Container(
@@ -116,6 +126,7 @@ class PdfInvoiceGenerator {
                 children: [
                   pw.Text(
                     seller.brandName,
+                    textAlign: pw.TextAlign.right,
                     style: pw.TextStyle(
                       color: PdfColors.white,
                       fontSize: 18,
@@ -125,6 +136,7 @@ class PdfInvoiceGenerator {
                   pw.SizedBox(height: 3),
                   pw.Text(
                     seller.subtitle,
+                    textAlign: pw.TextAlign.right,
                     style: const pw.TextStyle(
                       color: PdfColor.fromInt(0xFF94A3B8),
                       fontSize: 8.5,
@@ -140,6 +152,7 @@ class PdfInvoiceGenerator {
                     ),
                     child: pw.Text(
                       docTitle,
+                      textAlign: pw.TextAlign.right,
                       style: pw.TextStyle(
                         color: PdfColors.white,
                         fontSize: 9.5,
@@ -151,6 +164,7 @@ class PdfInvoiceGenerator {
               ),
             ],
           ),
+          // سمت چپ هدر: شماره فاکتور و تاریخ
           pw.Container(
             padding: const pw.EdgeInsets.all(8),
             decoration: pw.BoxDecoration(
@@ -162,6 +176,7 @@ class PdfInvoiceGenerator {
               children: [
                 pw.Text(
                   'شماره سند: ${AppUtils.toPersianDigits(invoice.invoiceNumber)}',
+                  textAlign: pw.TextAlign.right,
                   style: pw.TextStyle(
                     color: PdfColors.white,
                     fontSize: 9,
@@ -171,6 +186,7 @@ class PdfInvoiceGenerator {
                 pw.SizedBox(height: 3),
                 pw.Text(
                   'تاریخ صدور: ${AppUtils.toPersianDigits(invoice.shamsiDate)}',
+                  textAlign: pw.TextAlign.right,
                   style: const pw.TextStyle(
                     color: PdfColors.white,
                     fontSize: 9,
@@ -179,6 +195,7 @@ class PdfInvoiceGenerator {
                 pw.SizedBox(height: 3),
                 pw.Text(
                   'واحد مالی: ${invoice.currency}',
+                  textAlign: pw.TextAlign.right,
                   style: const pw.TextStyle(
                     color: PdfColor.fromInt(0xFF38BDF8),
                     fontSize: 8.5,
@@ -210,6 +227,7 @@ class PdfInvoiceGenerator {
                 flex: 2,
                 child: pw.Text(
                   'خریدار / کارفرما: ${invoice.clientName.isEmpty ? "-" : invoice.clientName}',
+                  textAlign: pw.TextAlign.right,
                   style: pw.TextStyle(
                       fontSize: 9.5,
                       fontWeight: pw.FontWeight.bold,
@@ -220,6 +238,7 @@ class PdfInvoiceGenerator {
                 flex: 1,
                 child: pw.Text(
                   'شماره تماس: ${invoice.clientPhone.isEmpty ? "-" : AppUtils.toPersianDigits(invoice.clientPhone)}',
+                  textAlign: pw.TextAlign.right,
                   style: const pw.TextStyle(fontSize: 9),
                 ),
               ),
@@ -228,6 +247,7 @@ class PdfInvoiceGenerator {
                   flex: 1,
                   child: pw.Text(
                     'کد ملی/اقتصادی: ${AppUtils.toPersianDigits(invoice.clientNationalId)}',
+                    textAlign: pw.TextAlign.right,
                     style: const pw.TextStyle(fontSize: 8.5),
                   ),
                 ),
@@ -237,6 +257,7 @@ class PdfInvoiceGenerator {
             pw.SizedBox(height: 5),
             pw.Text(
               'نشانی پروژه / محل اجرا: ${invoice.clientAddress}',
+              textAlign: pw.TextAlign.right,
               style: const pw.TextStyle(fontSize: 8.5, color: slateColor),
             ),
           ],
@@ -246,33 +267,38 @@ class PdfInvoiceGenerator {
   }
 
   static pw.Widget _buildItemsTable(InvoiceDocument invoice) {
-    final headers = [
-      'ردیف',
-      'شرح کالا یا خدمات مهندسی شبکه',
-      'دسته',
-      'تعداد/متراژ',
-      'واحد',
-      'قیمت واحد',
-      'تخفیف',
-      'مبلغ کل (${invoice.currency})',
+    // در موتور PDF فلاتر، ستون‌ها از چپ (ایندکس 0) به راست (ایندکس 7) چیده می‌شوند.
+    // بنابراین ترتیب را معکوس می‌کنیم تا ستون «ردیف» در منتهی‌الیه سمت راست قرار بگیرد
+    // و «مبلغ کل» در منتهی‌الیه سمت چپ قرار گیرد.
+    final headersRtl = [
+      'مبلغ کل (${invoice.currency})', // ستون چپ (0)
+      'تخفیف', // (1)
+      'قیمت واحد', // (2)
+      'واحد', // (3)
+      'تعداد/متراژ', // (4)
+      'دسته', // (5)
+      'شرح کالا یا خدمات مهندسی شبکه', // (6)
+      'ردیف', // ستون اول از سمت راست (7)
     ];
 
     return pw.Table(
       border: pw.TableBorder.all(color: borderColor, width: 0.7),
+      defaultVerticalAlignment: pw.TableCellVerticalAlignment.middle,
       columnWidths: {
-        0: const pw.FixedColumnWidth(26),
-        1: const pw.FlexColumnWidth(3.2),
-        2: const pw.FixedColumnWidth(52),
-        3: const pw.FixedColumnWidth(42),
-        4: const pw.FixedColumnWidth(35),
-        5: const pw.FixedColumnWidth(68),
-        6: const pw.FixedColumnWidth(54),
-        7: const pw.FixedColumnWidth(78),
+        0: const pw.FixedColumnWidth(78), // مبلغ کل (سمت چپ)
+        1: const pw.FixedColumnWidth(54), // تخفیف
+        2: const pw.FixedColumnWidth(68), // قیمت واحد
+        3: const pw.FixedColumnWidth(35), // واحد
+        4: const pw.FixedColumnWidth(42), // تعداد/متراژ
+        5: const pw.FixedColumnWidth(52), // دسته
+        6: const pw.FlexColumnWidth(3.2), // شرح کالا یا خدمات
+        7: const pw.FixedColumnWidth(26), // ردیف (سمت راست)
       },
       children: [
+        // هدر جدول (از راست به چپ)
         pw.TableRow(
           decoration: const pw.BoxDecoration(color: navyColor),
-          children: headers
+          children: headersRtl
               .map(
                 (h) => pw.Padding(
                   padding: const pw.EdgeInsets.symmetric(
@@ -280,6 +306,7 @@ class PdfInvoiceGenerator {
                   child: pw.Text(
                     h,
                     textAlign: pw.TextAlign.center,
+                    textDirection: pw.TextDirection.rtl,
                     style: pw.TextStyle(
                       color: PdfColors.white,
                       fontSize: 8,
@@ -290,6 +317,7 @@ class PdfInvoiceGenerator {
               )
               .toList(),
         ),
+        // ردیف‌های جدول (از راست به چپ)
         ...List.generate(invoice.items.length, (index) {
           final item = invoice.items[index];
           final isEven = index % 2 == 0;
@@ -298,16 +326,24 @@ class PdfInvoiceGenerator {
               color: isEven ? PdfColors.white : lightBg,
             ),
             children: [
-              _cell(AppUtils.toPersianDigits('${index + 1}')),
-              _cell(item.description, align: pw.TextAlign.right, bold: true),
-              _cell(item.category, fontSize: 7.5),
-              _cell(AppUtils.formatDecimal(item.quantity)),
-              _cell(item.unit),
-              _cell(AppUtils.formatNumber(item.unitPrice)),
+              // 0: مبلغ کل (سمت چپ)
+              _cell(AppUtils.formatNumber(item.netTotal), bold: true),
+              // 1: تخفیف
               _cell(item.discountAmount > 0
                   ? AppUtils.formatNumber(item.discountAmount)
                   : '۰'),
-              _cell(AppUtils.formatNumber(item.netTotal), bold: true),
+              // 2: قیمت واحد
+              _cell(AppUtils.formatNumber(item.unitPrice)),
+              // 3: واحد
+              _cell(item.unit),
+              // 4: تعداد/متراژ
+              _cell(AppUtils.formatDecimal(item.quantity)),
+              // 5: دسته
+              _cell(item.category, fontSize: 7.5),
+              // 6: شرح کالا یا خدمات (کاملاً راست‌چین)
+              _cell(item.description, align: pw.TextAlign.right, bold: true),
+              // 7: ردیف (اولین ستون در سمت راست)
+              _cell(AppUtils.toPersianDigits('${index + 1}')),
             ],
           );
         }),
@@ -322,10 +358,11 @@ class PdfInvoiceGenerator {
     double fontSize = 8.5,
   }) {
     return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(vertical: 5, horizontal: 4),
+      padding: const pw.EdgeInsets.symmetric(vertical: 5, horizontal: 5),
       child: pw.Text(
         text,
         textAlign: align,
+        textDirection: pw.TextDirection.rtl,
         style: pw.TextStyle(
           fontSize: fontSize,
           fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
@@ -349,6 +386,7 @@ class PdfInvoiceGenerator {
       child: pw.Row(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
+          // سمت راست: مبلغ به حروف و توضیحات
           pw.Expanded(
             flex: 3,
             child: pw.Column(
@@ -365,6 +403,7 @@ class PdfInvoiceGenerator {
                     children: [
                       pw.Text(
                         'مبلغ قابل پرداخت به حروف: ',
+                        textAlign: pw.TextAlign.right,
                         style: pw.TextStyle(
                             fontSize: 8.5,
                             fontWeight: pw.FontWeight.bold,
@@ -373,6 +412,7 @@ class PdfInvoiceGenerator {
                       pw.Expanded(
                         child: pw.Text(
                           words,
+                          textAlign: pw.TextAlign.right,
                           style: pw.TextStyle(
                               fontSize: 8.5,
                               fontWeight: pw.FontWeight.bold,
@@ -385,6 +425,7 @@ class PdfInvoiceGenerator {
                 pw.SizedBox(height: 6),
                 pw.Text(
                   'شرایط پرداخت، گارانتی و توضیحات:',
+                  textAlign: pw.TextAlign.right,
                   style: pw.TextStyle(
                       fontSize: 8,
                       fontWeight: pw.FontWeight.bold,
@@ -393,12 +434,14 @@ class PdfInvoiceGenerator {
                 pw.SizedBox(height: 2),
                 pw.Text(
                   invoice.notesAndTerms,
+                  textAlign: pw.TextAlign.right,
                   style: const pw.TextStyle(fontSize: 8, color: slateColor),
                 ),
               ],
             ),
           ),
           pw.SizedBox(width: 12),
+          // سمت چپ: جمع کل و محاسبات مالی
           pw.Expanded(
             flex: 2,
             child: pw.Column(
@@ -425,6 +468,7 @@ class PdfInvoiceGenerator {
                     children: [
                       pw.Text(
                         'مبلغ قابل پرداخت:',
+                        textAlign: pw.TextAlign.right,
                         style: pw.TextStyle(
                             color: PdfColors.white,
                             fontSize: 9,
@@ -432,6 +476,7 @@ class PdfInvoiceGenerator {
                       ),
                       pw.Text(
                         '${AppUtils.formatNumber(invoice.grandTotal)} ${invoice.currency}',
+                        textAlign: pw.TextAlign.left,
                         style: pw.TextStyle(
                             color: PdfColors.white,
                             fontSize: 9.5,
@@ -467,6 +512,7 @@ class PdfInvoiceGenerator {
         children: [
           pw.Text(
             label,
+            textAlign: pw.TextAlign.right,
             style: pw.TextStyle(
               fontSize: 8.5,
               fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
@@ -475,6 +521,7 @@ class PdfInvoiceGenerator {
           ),
           pw.Text(
             value,
+            textAlign: pw.TextAlign.left,
             style: pw.TextStyle(
               fontSize: 8.5,
               fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
@@ -501,6 +548,7 @@ class PdfInvoiceGenerator {
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         crossAxisAlignment: pw.CrossAxisAlignment.center,
         children: [
+          // سمت راست فوتر: اطلاعات بانکی و آدرس فروشنده
           pw.Expanded(
             flex: 3,
             child: pw.Column(
@@ -508,6 +556,7 @@ class PdfInvoiceGenerator {
               children: [
                 pw.Text(
                   'اطلاعات پرداخت بانکی (${seller.brandName}):',
+                  textAlign: pw.TextAlign.right,
                   style: pw.TextStyle(
                       fontSize: 8.5,
                       fontWeight: pw.FontWeight.bold,
@@ -516,27 +565,32 @@ class PdfInvoiceGenerator {
                 pw.SizedBox(height: 3),
                 pw.Text(
                   'شماره کارت: ${AppUtils.toPersianDigits(seller.cardNumber)}  |  به نام: ${seller.accountHolder}',
+                  textAlign: pw.TextAlign.right,
                   style: pw.TextStyle(
                       fontSize: 8.5, fontWeight: pw.FontWeight.bold),
                 ),
                 if (seller.shebaNumber.isNotEmpty)
                   pw.Text(
                     'شماره شبا: ${seller.shebaNumber}',
+                    textAlign: pw.TextAlign.right,
                     style: const pw.TextStyle(fontSize: 8, color: slateColor),
                   ),
                 pw.Divider(color: borderColor, height: 10),
                 pw.Text(
                   'تلفن پشتیبانی: ${AppUtils.toPersianDigits(seller.phone)}   |   وب‌سایت: ${seller.website}',
+                  textAlign: pw.TextAlign.right,
                   style: const pw.TextStyle(fontSize: 8, color: slateColor),
                 ),
                 pw.Text(
                   'نشانی: ${seller.address}',
+                  textAlign: pw.TextAlign.right,
                   style: const pw.TextStyle(fontSize: 8, color: slateColor),
                 ),
               ],
             ),
           ),
           pw.SizedBox(width: 10),
+          // سمت چپ فوتر: محل مهر و امضا
           pw.Expanded(
             flex: 2,
             child: pw.Row(
